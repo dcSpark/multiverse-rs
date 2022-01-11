@@ -1,5 +1,7 @@
 mod entry;
 mod error;
+mod block_number;
+mod deserialize;
 mod variant;
 mod visitor;
 
@@ -11,7 +13,7 @@ use self::entry::{Entry, EntryWeakRef};
 pub use self::{
     entry::EntryRef, error::MultiverseError, variant::Variant, visitor::DepthOrderedIterator,
 };
-use crate::ir::BlockNumber;
+use crate::block_number::BlockNumber;
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Borrow,

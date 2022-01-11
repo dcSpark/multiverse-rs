@@ -4,6 +4,7 @@ use std::{
     borrow::{Borrow, Cow},
     collections::HashMap,
 };
+use crate::entry::BlockNumber
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash, Clone)]
 pub struct V {
@@ -210,7 +211,7 @@ impl Variant for V {
     fn parent_id(&self) -> &K {
         &self.parent_id
     }
-    fn block_number(&self) -> crate::ir::BlockNumber {
+    fn block_number(&self) -> BlockNumber {
         self.counter.into()
     }
 }

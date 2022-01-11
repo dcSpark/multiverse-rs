@@ -17,7 +17,9 @@ serde = { version = "1.0", features = [ "derive", "rc" ] }
 serde_json = { version = "1.0", features = [] }
 tracing = { version = "0.1" }
 
-sled = { version = "0.34", optional = true }
+sled = { version = "0.34"}
+
+bigdecimal = { version = "0.3.0" }
 
 [dev-dependencies]
 anyhow = "1.0"
