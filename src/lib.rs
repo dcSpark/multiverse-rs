@@ -404,6 +404,11 @@ where
         Ok(entry.value)
     }
 
+    /// from the given block `tip` retrieve the ancestor that is `min_depth`
+    /// "parent" to the given `tip`.
+    ///
+    /// This function is `O(min_depth)` in time and `O(1)` in space.
+    ///
     #[tracing::instrument(skip(self, tip), level = "debug")]
     fn ancestor(&self, tip: &EntryRef<K>, min_depth: usize) -> Option<EntryRef<K>> {
         let mut ancestor = tip.clone();
@@ -420,6 +425,8 @@ where
     }
 
     /// function to compute the [`BestBlock`] based on the given parameters
+    /// See [`BestBlockSelectionRule`] for mor information about the available
+    /// algorithms.
     ///
     pub fn select_best_block(&self, rule: BestBlockSelectionRule) -> BestBlock<K> {
         match rule {
