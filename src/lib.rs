@@ -1,4 +1,3 @@
-// mod deserialize;
 mod entry;
 mod error;
 mod variant;
