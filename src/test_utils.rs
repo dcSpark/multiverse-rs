@@ -212,7 +212,7 @@ impl Variant for V {
         &self.parent_id
     }
     fn block_number(&self) -> BlockNumber {
-        self.counter.into()
+        self.counter
     }
 }
 
