@@ -1,4 +1,4 @@
-use crate::block_number::BlockNumber;
+use crate::BlockNumber;
 
 /// convenient trait to enable generalization of [`Multiverse`]
 /// state tracking.

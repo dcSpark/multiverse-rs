@@ -6,15 +6,6 @@ use std::{
     sync::{Arc, Weak},
 };
 
-use serde::Serialize;
-
-/// use to identify a block number within the blockchain
-///
-/// this value is not necessarily monotonically increasing.
-#[derive(Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Serialize)]
-#[serde(transparent)]
-pub struct BlockNumber(u64);
-
 /// an entry in the [`Multiverse`](crate::multiverse::Multiverse) graph
 ///
 #[derive(Debug)]

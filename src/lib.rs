@@ -1,5 +1,4 @@
-mod block_number;
-mod deserialize;
+// mod deserialize;
 mod entry;
 mod error;
 mod variant;
@@ -13,7 +12,6 @@ use self::entry::{Entry, EntryWeakRef};
 pub use self::{
     entry::EntryRef, error::MultiverseError, variant::Variant, visitor::DepthOrderedIterator,
 };
-use crate::block_number::BlockNumber;
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Borrow,
@@ -24,7 +22,13 @@ use std::{
     str,
     sync::Arc,
 };
+
 use thiserror::Error;
+
+///
+/// Any type that has u64 representation with constantly increasing value.
+///
+type BlockNumber = u64;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -151,7 +155,7 @@ where
         C: Into<u64>,
     {
         let counter = counter.into();
-        if self.store_from.into_inner() <= counter {
+        if self.store_from <= counter {
             let key = mk_sled_key(counter, key);
             let b = self.tree.insert(key, serde_json::to_vec(value)?)?;
 

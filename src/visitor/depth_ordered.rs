@@ -1,4 +1,4 @@
-use crate::block_number::BlockNumber;
+use crate::BlockNumber;
 use crate::{entry::EntryRef, Multiverse};
 use std::{
     collections::{BTreeMap, HashSet},

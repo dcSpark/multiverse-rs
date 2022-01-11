@@ -1,5 +1,5 @@
 use super::Variant;
-use crate::block_number::BlockNumber;
+use crate::BlockNumber;
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::{Borrow, Cow},
