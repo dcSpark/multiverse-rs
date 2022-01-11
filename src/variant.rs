@@ -1,6 +1,6 @@
 use crate::BlockNumber;
 
-/// convenient trait to enable generalization of [`Multiverse`]
+/// convenient trait to enable generalization of [`Multiverse`](crate::Multiverse)
 /// state tracking.
 ///
 pub trait Variant: serde::de::DeserializeOwned + serde::Serialize {

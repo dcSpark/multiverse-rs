@@ -23,10 +23,15 @@ use std::{
     sync::Arc,
 };
 
+/// The [`BlockNumber`] is designed to be a monotonically increasing value
+/// that can be used to index values of a blockchain (or the different states)
+/// that needs to be indexed.
 ///
-/// Any type that has u64 representation with constantly increasing value.
+/// [`BlockNumber`] is not designed to be unique. Just to give a sense of ordering
+/// and sequencing between blocks. though there maybe multiple blocks with the same
+/// [`BlockNumber`] depending of forks and branches happening.
 ///
-type BlockNumber = u64;
+pub type BlockNumber = u64;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -92,18 +97,18 @@ pub struct Multiverse<K, V> {
     store_from: BlockNumber,
 }
 
-/// Structure returned by [`Multiverse::select_best_root`] function.
+/// Structure returned by [`Multiverse::select_best_block`] function.
 pub struct BestBlock<K> {
     /// the selected best block if any.
     ///
     /// If this value is `None` it does not necessarily means there is
     /// no good blocks at all. It means that given the parameters given
-    /// while calling [`Multiverse::select_best_root`] there were no block
+    /// while calling [`Multiverse::select_best_block`] there were no block
     /// that could have been chosen.
     pub selected: Option<EntryRef<K>>,
     /// collection of blocks that may be discarded/garbage collected.
     ///
-    /// Given the parameters passed to [`Multiverse::selected_best_root`] this
+    /// Given the parameters passed to [`Multiverse::select_best_block`] this
     /// will contains the blocks that are no longer of interest and may be
     /// garbage collected.
     pub discarded: HashSet<EntryRef<K>>,
@@ -221,7 +226,7 @@ where
     V: Variant<Key = K>,
 {
     /// create an iterator over the entries of the multiverse
-    /// ordered by the associated [`BlockNumber`](crate::ir::BlockNumber).
+    /// ordered by the associated [`BlockNumber`].
     ///
     /// We tie the iterator to the multiverse to prevent updating the
     /// storage while we are iterating over the entries.
