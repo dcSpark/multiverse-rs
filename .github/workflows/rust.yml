@@ -5,36 +5,45 @@ on: [push]
 jobs:
   ci:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust:
+          - stable
+          - beta
+          - 1.57.0  # Minimum supported rust version
 
     steps:
       - name: "Checkout"
         uses: actions/checkout@v2
-      
+
       - name: "Setup"
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
-      
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          override: true
+          components: rustfmt, clippy
+
       - name: "Format check"
         uses: actions-rs/cargo@v1
         with:
           command: fmt
           args: -- --check
-      
+
       - name: "Linter checks"
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --locked --all-features -- --deny "clippy::all"
+          args: --all-features --all-targets -- --deny "clippy::all"
 
-      - name: "Build"
+      - name: "Check"
         uses: actions-rs/cargo@v1
         with:
-          command: build
-          args: --locked --all-features
+          command: check
+          args: --all-features --all-targets
 
       - name: "Test"
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --locked --all-features
+          args: --all-features --all-targets
