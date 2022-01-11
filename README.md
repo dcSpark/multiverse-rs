@@ -1,5 +1,7 @@
 # Multiverse
 
+[![Linter and unit tests](https://github.com/dcSpark/multiverse-rs/actions/workflows/rust.yml/badge.svg)](https://github.com/dcSpark/multiverse-rs/actions/workflows/rust.yml)
+
 ## Summary
 
 A blockchain in itself is the persistent storage of the state of the ledger.
@@ -56,9 +58,12 @@ significantly as well. Lastly, this also translates to a better end user
 experience, which we will cover in addressing how user wallets can maintain
 state via the Multiverse data structure directly.
 
-Note: the concept was first coined by Vincent Hanquez when designing and
-architecting Jörmungandr back in 2019. At the time it was our belief we
+Note: the concept was first coined by [Vincent Hanquez] when designing and
+architecting [Jörmungandr] back in 2019. At the time it was our belief we
 could actually provide a simpler and faster way to manage rollback by following
 all the branches of a given blockchain. With time and maturity we came to
 the conclusion this could actually be useful through all the stack of the
 blockchain.
+
+[Jörmungandr]: https://github.com/input-output-hk/jormungandr
+[Vincent Hanquez]: https://github.com/vincenthz
