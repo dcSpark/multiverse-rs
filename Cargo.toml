@@ -23,3 +23,5 @@ bigdecimal = { version = "0.3.0" }
 
 [dev-dependencies]
 anyhow = "1.0"
+smoke = { version = "0.3" }
+smoke-macros = { version = '0.1'}
