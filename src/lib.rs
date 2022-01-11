@@ -23,8 +23,6 @@ use std::{
     sync::Arc,
 };
 
-use thiserror::Error;
-
 ///
 /// Any type that has u64 representation with constantly increasing value.
 ///
@@ -32,7 +30,7 @@ type BlockNumber = u64;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum ForkSelectionRule {
+pub enum BestBlockSelectionRule {
     /// this algorithm is pretty straight forward. We select the
     /// longest chain as the preferred fork. All we do is iterate
     /// through all the different tips and compare the
@@ -48,7 +46,17 @@ pub enum ForkSelectionRule {
     /// It may be that two chains have the same length. Then the first
     /// one selected by the algorithm will conserve its place.
     ///
-    LongestChain,
+    LongestChain {
+        /// when the best block function this will be the value used to determined
+        /// how many confirmations are required in order to consider a block
+        /// confirmed enough
+        depth: usize,
+        /// if a block is confirmed based on the `depth` value. This will allow
+        /// the [`Multiverse::select_best_block`] function to determine the blocks
+        /// that may need to be garbage collected as too old and unlikely to
+        /// be forked
+        age_gap: usize,
+    },
     /*
     TODO: one of the update we could add is to look at the Heaviest chain
           the chain that has the most activities on.
@@ -82,6 +90,23 @@ pub struct Multiverse<K, V> {
     roots: HashSet<EntryRef<K>>,
 
     store_from: BlockNumber,
+}
+
+/// Structure returned by [`Multiverse::select_best_root`] function.
+pub struct BestBlock<K> {
+    /// the selected best block if any.
+    ///
+    /// If this value is `None` it does not necessarily means there is
+    /// no good blocks at all. It means that given the parameters given
+    /// while calling [`Multiverse::select_best_root`] there were no block
+    /// that could have been chosen.
+    pub selected: Option<EntryRef<K>>,
+    /// collection of blocks that may be discarded/garbage collected.
+    ///
+    /// Given the parameters passed to [`Multiverse::selected_best_root`] this
+    /// will contains the blocks that are no longer of interest and may be
+    /// garbage collected.
+    pub discarded: HashSet<EntryRef<K>>,
 }
 
 impl<K, V> Multiverse<K, V>
@@ -374,43 +399,6 @@ where
         Ok(entry.value)
     }
 
-    /// select a fork (a tip) of the multiverse based on the [`ForkSelectionRule`]
-    /// algorithm.
-    ///
-    /// see [`ForkSelectionRule`] for more information about the different options
-    /// and the trade off.
-    pub fn preferred_fork(&self, rule: ForkSelectionRule) -> Option<EntryRef<K>> {
-        match rule {
-            ForkSelectionRule::LongestChain => self.prefer_longest_fork(),
-        }
-    }
-
-    fn prefer_longest_fork(&self) -> Option<EntryRef<K>> {
-        let mut tips = self.tips.iter();
-        let mut result = tips.next().cloned()?;
-
-        let mut longest = self
-            .all
-            .get(&result)
-            .expect("entries in the `tips` should be in the `all`")
-            .value
-            .block_number();
-
-        for tip_ref in tips {
-            let tip = self
-                .all
-                .get(tip_ref)
-                .expect("entries in the `tips` should be in the `all`");
-
-            if tip.value.block_number() > longest {
-                longest = tip.value.block_number();
-                result = tip_ref.clone();
-            }
-        }
-
-        Some(result)
-    }
-
     #[tracing::instrument(skip(self, tip), level = "debug")]
     fn ancestor(&self, tip: &EntryRef<K>, min_depth: usize) -> Option<EntryRef<K>> {
         let mut ancestor = tip.clone();
@@ -426,12 +414,22 @@ where
         Some(ancestor)
     }
 
-    pub(crate) fn select_best_root(&self, min_depth: usize, min_delta: usize) -> BestRoot<K> {
+    /// function to compute the [`BestBlock`] based on the given parameters
+    ///
+    pub fn select_best_block(&self, rule: BestBlockSelectionRule) -> BestBlock<K> {
+        match rule {
+            BestBlockSelectionRule::LongestChain { depth, age_gap } => {
+                self.select_best_block_longest_chain(depth, age_gap)
+            }
+        }
+    }
+
+    fn select_best_block_longest_chain(&self, depth: usize, age_gap: usize) -> BestBlock<K> {
         // take the blocks that have the highest `BlockNumber`
         // these are the most likely tips at the given time
         let selected = if let Some((_, tips)) = self.ordered.iter().last() {
             if let Some(tip) = tips.iter().next() {
-                self.ancestor(tip, min_depth)
+                self.ancestor(tip, depth)
             } else {
                 None
             }
@@ -445,10 +443,7 @@ where
                 let _span =
                     tracing::span!(tracing::Level::DEBUG, "compute root to discard").entered();
 
-                let max = selected
-                    .value
-                    .block_number()
-                    .saturating_sub(min_delta as u64);
+                let max = selected.value.block_number().saturating_sub(age_gap as u64);
 
                 for (number, set) in self.ordered.range(BlockNumber::MIN..max) {
                     debug_assert!(number <= &max);
@@ -457,16 +452,11 @@ where
             }
         }
 
-        BestRoot {
+        BestBlock {
             selected,
             discarded,
         }
     }
-}
-
-pub(crate) struct BestRoot<K> {
-    pub(crate) selected: Option<EntryRef<K>>,
-    pub(crate) discarded: HashSet<EntryRef<K>>,
 }
 
 /// the sled::Db iterator allows to load in an ordered fashion. So
@@ -496,29 +486,7 @@ fn mk_sled_key(counter: u64, key: impl AsRef<[u8]>) -> Vec<u8> {
     bytes
 }
 
-impl fmt::Display for ForkSelectionRule {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::LongestChain => "longest-chain".fmt(f),
-        }
-    }
-}
-
-#[derive(Debug, Error)]
-#[error("Invalid fork selection rule")]
-pub struct InvalidForkSelectionRule;
-
-impl str::FromStr for ForkSelectionRule {
-    type Err = InvalidForkSelectionRule;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "longest-chain" => Ok(Self::LongestChain),
-            _ => Err(InvalidForkSelectionRule),
-        }
-    }
-}
-
-impl<K> Default for BestRoot<K> {
+impl<K> Default for BestBlock<K> {
     fn default() -> Self {
         Self {
             selected: None,
@@ -698,18 +666,20 @@ mod tests {
             );
         }
 
-        let BestRoot {
+        let BestBlock {
             selected,
             discarded,
-        } = m.select_best_root(1, 1);
+        } = m.select_best_block(BestBlockSelectionRule::LongestChain {
+            depth: 1,
+            age_gap: 1,
+        });
         assert_eq!(selected, Some(EntryRef::new(K::new("Root"))));
         assert!(discarded.is_empty());
     }
 
     struct Simulation {
         multiverse: Multiverse<K, V>,
-        min_depth: usize,
-        min_delta: usize,
+        selection_rule: BestBlockSelectionRule,
         selected: Option<K>,
     }
 
@@ -729,12 +699,10 @@ mod tests {
         }
 
         pub fn purge(&mut self) -> Result<()> {
-            let BestRoot {
+            let BestBlock {
                 selected,
                 discarded,
-            } = self
-                .multiverse
-                .select_best_root(self.min_depth, self.min_delta);
+            } = self.multiverse.select_best_block(self.selection_rule);
 
             self.selected = selected.map(|k| k.inner().clone());
 
@@ -798,8 +766,10 @@ mod tests {
         fn default() -> Self {
             Self {
                 multiverse: Multiverse::temporary().unwrap(),
-                min_depth: 3,
-                min_delta: 1,
+                selection_rule: BestBlockSelectionRule::LongestChain {
+                    depth: 3,
+                    age_gap: 1,
+                },
                 selected: None,
             }
         }
