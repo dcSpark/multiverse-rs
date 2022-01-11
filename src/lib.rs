@@ -32,8 +32,36 @@ use std::{
 ///
 pub type BlockNumber = u64;
 
+/// Configure the selection rule for the [`Multiverse::select_best_block`]
+/// function
+///
+/// # serde
+///
+/// [serde] formatting is providing for the object in order to facilitate including
+/// it in _JavaScript_ API or to get the value from a configuration file.
+///
+/// The Variant is given under the field `rule` and is encoded in `PascalCase`.
+/// and the parameters of each variant are encoded in `snake_case`.
+///
+/// ```
+/// # use multiverse::BestBlockSelectionRule;
+/// # use serde_json::{json, to_value};
+/// # fn test() -> Result<(), serde_json::Error> {
+/// let expected = json!{{
+///   "rule": "LongestChain",
+///   "depth": 3,
+///   "age_gap": 2,
+/// }};
+///
+/// let value = BestBlockSelectionRule::LongestChain { depth: 3, age_gap: 2 };
+/// # assert_eq!(to_value(value)?, expected);
+/// # Ok(())
+/// # }
+/// # test().unwrap()
+/// ```
+///
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "PascalCase")]
 #[serde(tag = "rule")]
 pub enum BestBlockSelectionRule {
     /// this algorithm is pretty straight forward. We select the
@@ -51,6 +79,7 @@ pub enum BestBlockSelectionRule {
     /// It may be that two chains have the same length. Then the first
     /// one selected by the algorithm will conserve its place.
     ///
+    #[serde(rename_all = "snake_case")]
     LongestChain {
         /// when the best block function this will be the value used to determined
         /// how many confirmations are required in order to consider a block
