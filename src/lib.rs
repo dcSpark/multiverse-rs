@@ -34,6 +34,7 @@ pub type BlockNumber = u64;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[serde(tag = "rule")]
 pub enum BestBlockSelectionRule {
     /// this algorithm is pretty straight forward. We select the
     /// longest chain as the preferred fork. All we do is iterate
