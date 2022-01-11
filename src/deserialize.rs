@@ -1,5 +1,4 @@
 use bigdecimal::BigDecimal;
-use serde;
 use std::convert::TryFrom;
 use std::marker::PhantomData;
 use std::{any, fmt};

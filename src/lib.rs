@@ -1,7 +1,7 @@
-mod entry;
-mod error;
 mod block_number;
 mod deserialize;
+mod entry;
+mod error;
 mod variant;
 mod visitor;
 

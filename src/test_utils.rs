@@ -1,10 +1,10 @@
 use super::Variant;
+use crate::block_number::BlockNumber;
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::{Borrow, Cow},
     collections::HashMap,
 };
-use crate::entry::BlockNumber
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash, Clone)]
 pub struct V {
