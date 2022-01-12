@@ -17,7 +17,7 @@ impl MyNode {
     fn new(id: &str, block_number: BlockNumber, parent_id: &str) -> MyNode {
         MyNode {
             id: String::from(id),
-            block_number: block_number,
+            block_number,
             parent_id: String::from(parent_id),
         }
     }
@@ -26,13 +26,13 @@ impl MyNode {
 impl Variant for MyNode {
     type Key = String;
     fn id(&self) -> &Self::Key {
-        return &self.id;
+        &self.id
     }
     fn parent_id(&self) -> &Self::Key {
-        return &self.parent_id;
+        &self.parent_id
     }
     fn block_number(&self) -> BlockNumber {
-        return self.block_number;
+        self.block_number
     }
 }
 
