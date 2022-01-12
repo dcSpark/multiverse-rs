@@ -18,16 +18,22 @@ impl MyNode {
         MyNode {
             id: String::from(id),
             block_number: block_number,
-            parent_id:  String::from(parent_id),
+            parent_id: String::from(parent_id),
         }
     }
 }
 
 impl Variant for MyNode {
     type Key = String;
-    fn id(&self) -> &Self::Key { return &self.id; }
-    fn parent_id(&self) -> &Self::Key { return &self.parent_id; }
-    fn block_number(&self) -> BlockNumber { return self.block_number; }
+    fn id(&self) -> &Self::Key {
+        return &self.id;
+    }
+    fn parent_id(&self) -> &Self::Key {
+        return &self.parent_id;
+    }
+    fn block_number(&self) -> BlockNumber {
+        return self.block_number;
+    }
 }
 
 type MyMultiverse = Multiverse<String, MyNode>;
@@ -39,14 +45,14 @@ fn main() {
 
     let rule = BestBlockSelectionRule::LongestChain {
         depth: 1,
-        age_gap: 1
+        age_gap: 1,
     };
 
     let bb = multiverse.select_best_block(rule);
 
     println!("Best block {}", bb.selected.unwrap());
     println!("Discarded:");
-    for v in bb.discarded  {
+    for v in bb.discarded {
         println!("\t - {}", v);
     }
 }
@@ -64,7 +70,7 @@ fn populate_multiverse(mv: &mut MyMultiverse) {
     let mut insert = |id: &str, block_number: BlockNumber, parent_id: &str| {
         mv.insert(MyNode::new(id, block_number, parent_id));
     };
-    
+
     insert("1-abc0", 1, "");
     insert("2-bcd0", 2, "1-abc0");
     insert("3-cde0", 3, "2-bcd0");
