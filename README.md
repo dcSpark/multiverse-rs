@@ -30,8 +30,12 @@ It creates multiverse with some branches and then selects best block.
 
 You could run example like this
 ```shell
-cargo run --example multiverse
+cargo run --example multiverse -- <depth> <age_gap>
 ```
+CLI args:
+
+- \<depth\> \- required number of block confirmations 
+- \<age_gap\> \- discard blocks if their age (delta compared to larger block number) is more than provided  
 
 ## Summary
 

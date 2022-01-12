@@ -1,4 +1,6 @@
 use serde::{Deserialize, Serialize};
+use std::env;
+use tracing::error;
 
 use multiverse::{BestBlockSelectionRule, BlockNumber, Multiverse, Variant};
 
@@ -39,14 +41,23 @@ impl Variant for MyNode {
 type MyMultiverse = Multiverse<String, MyNode>;
 
 fn main() {
+    let args: Vec<String> = env::args().collect();
+    let rule = if args.len() == 3 {
+        let depth = args[1]
+            .parse::<usize>()
+            .expect("Fist arg has to be a number");
+        let age_gap = args[2]
+            .parse::<usize>()
+            .expect("Second arg has to be a number");
+        BestBlockSelectionRule::LongestChain { depth, age_gap }
+    } else {
+        panic!("ERROR! Must have only 2 CLI arguments <depth> <age_gap>");
+    };
+
+    // panic!("DFD");
     let mut multiverse: MyMultiverse = Multiverse::temporary().unwrap();
 
     populate_multiverse(&mut multiverse);
-
-    let rule = BestBlockSelectionRule::LongestChain {
-        depth: 1,
-        age_gap: 1,
-    };
 
     let bb = multiverse.select_best_block(rule);
 
