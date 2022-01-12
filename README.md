@@ -25,10 +25,10 @@ At some point we need to decide which blocks sequence is preferred and discard o
 
 ##  Quick start
 
-Please look into [this example](./examples/multiverse.rs).
-It creates multiverse with some branches and then selects best block.
+Please look into [this example](./examples/multiverse.rs), multiverse structure described in function `populate_multiverse` .
+In this example we create branched multiverse and then select best root block by longest chain.
 
-You could run example like this
+This is how to run example via CLI
 ```shell
 cargo run --example multiverse -- <depth> <age_gap>
 ```
