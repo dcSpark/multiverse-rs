@@ -4,10 +4,14 @@ use tracing::error;
 
 use multiverse::{BestBlockSelectionRule, BlockNumber, Multiverse, Variant};
 
-/*
-First we have to create our node/block structure and implement Variant trait for it.
-*/
+const MULTIVERSE_STRUCTURE: &str = "\
+(0-aaa0)<-(1-abc0)<-(2-bcd0)<-(3-cde0)<-(4-def0)<-(5-efg0)
+                 |<-(2-bcd1)<-(3-cde1)<-(4-def1)
+                           |<-(3-cde2)
+                                     |<-(4-def3)<-(5-efg3)<-(6-fgh3)
+";
 
+/// Our custom node/block for multiverse
 #[derive(Serialize, Deserialize)]
 struct MyNode {
     id: String,
@@ -25,6 +29,7 @@ impl MyNode {
     }
 }
 
+/// We must implement ['Variant'] to work with multiverse.
 impl Variant for MyNode {
     type Key = String;
     fn id(&self) -> &Self::Key {
@@ -42,6 +47,7 @@ type MyMultiverse = Multiverse<String, MyNode>;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
+
     let rule = if args.len() == 3 {
         let depth = args[1]
             .parse::<usize>()
@@ -49,40 +55,41 @@ fn main() {
         let age_gap = args[2]
             .parse::<usize>()
             .expect("Second arg has to be a number");
+
+        println!("\nMULTIVERSE STRUCTURE:\n{}", MULTIVERSE_STRUCTURE);
+        println!("\nINPUT:\n\tdepth = {}\n\tage_gap = {}\n", depth, age_gap);
+
         BestBlockSelectionRule::LongestChain { depth, age_gap }
     } else {
         panic!("ERROR! Must have only 2 CLI arguments <depth> <age_gap>");
     };
 
-    // panic!("DFD");
     let mut multiverse: MyMultiverse = Multiverse::temporary().unwrap();
 
     populate_multiverse(&mut multiverse);
 
     let bb = multiverse.select_best_block(rule);
 
-    println!("Best block {}", bb.selected.unwrap());
-    println!("Discarded:");
+    println!("RESULTS:");
+    println!("\tBest block: {}", bb.selected.unwrap());
+    print!("\tDiscarded : ");
     for v in bb.discarded {
-        println!("\t - {}", v);
+        print!("{}, ", v);
     }
+    println!();
 }
 
 ///
-/// Here we will populate our multiverse with next blocks structure.
-/// ```text
-/// (1-abc0)<-(2-bcd0)<-(3-cde0)<-(4-def0)<-(5-efg0)
-///        |<-(2-bcd1)<-(3-cde1)<-(4-def1)
-///                  |<-(3-cde2)
-///                            |<-(4-def3)<-(5-efg3)<-(6-fgh3)
-/// ```
+/// Here we will populate our multiverse with blocks structure described in ['MULTIVERSE_STRUCTURE'].
+///
 fn populate_multiverse(mv: &mut MyMultiverse) {
     // This function created just to same some space and 4 fun 2.
     let mut insert = |id: &str, block_number: BlockNumber, parent_id: &str| {
         mv.insert(MyNode::new(id, block_number, parent_id));
     };
 
-    insert("1-abc0", 1, "");
+    insert("0-aaa0", 0, "");
+    insert("1-abc0", 1, "0-aaa0");
     insert("2-bcd0", 2, "1-abc0");
     insert("3-cde0", 3, "2-bcd0");
     insert("4-def0", 4, "3-cde0");
