@@ -13,7 +13,9 @@ use self::entry::{Entry, EntryWeakRef};
 pub use self::{
     entry::EntryRef, error::MultiverseError, variant::Variant, visitor::DepthOrderedIterator,
 };
+use bigdecimal::num_traits::SaturatingSub;
 use serde::{Deserialize, Serialize};
+use std::fmt::{Debug, Display};
 use std::{
     borrow::Borrow,
     collections::{btree_map, hash_map::Entry as HashMapEntry, BTreeMap, HashMap, HashSet},
@@ -24,15 +26,109 @@ use std::{
     sync::Arc,
 };
 
-/// The [`BlockNumber`] is designed to be a monotonically increasing value
+/// The [`OrderType`] is designed to be a monotonically increasing value
 /// that can be used to index values of a blockchain (or the different states)
 /// that needs to be indexed.
 ///
-/// [`BlockNumber`] is not designed to be unique. Just to give a sense of ordering
+/// [`OrderType`] is not designed to be unique. Just to give a sense of ordering
 /// and sequencing between blocks. though there maybe multiple blocks with the same
-/// [`BlockNumber`] depending of forks and branches happening.
+/// [`OrderType`] depending of forks and branches happening.
 ///
-pub type BlockNumber = u64;
+pub trait BlockNumber: Ord + SaturatingSub + Clone + Debug + Display {
+    /// the largest value a [`BlockNumber`] can be
+    const MAX: Self;
+    /// the smallest value a [`BlockNumber`] can be.
+    const MIN: Self;
+
+    /// Try to increase by `1` the [`BlockNumber`]
+    ///
+    /// If the addition will overflow, the function will returns `None`.
+    #[must_use = "The function does not modify the state, the new value is returned"]
+    fn checked_next(self) -> Option<Self>;
+
+    /// Increase by `1` the [`BlockNumber`]
+    ///
+    /// If the addition will overflow, the function will returns [`Self::MAX`].
+    #[must_use = "The function does not modify the state, the new value is returned"]
+    fn saturating_next(self) -> Self;
+
+    /// Try to add the right hand side (`rhs`) value to the [`BlockNumber`].
+    ///
+    /// If the addition will overflow, the function will returns `None`.
+    #[must_use = "The function does not modify the state, the new value is returned"]
+    fn checked_add(self, rhs: u64) -> Option<Self>;
+
+    /// Add the right hand side (`rhs`) value to the [`BlockNumber`].
+    ///
+    /// If the addition will overflow we returns the [`Self::MAX`].
+    #[must_use = "The function does not modify the state, the new value is returned"]
+    fn saturating_add(self, rhs: u64) -> Self;
+
+    /// Subtract the right hand side (`rhs`) value to the [`BlockNumber`].
+    ///
+    /// If the subtraction will overflow we returns the [`Self::MIN`].
+    #[must_use = "The function does not modify the state, the new value is returned"]
+    fn saturating_sub(self, rhs: u64) -> Self;
+
+    /// the sled::Db iterator allows to load in an ordered fashion. So
+    /// long we decide to use a `key` format that makes sense we should
+    /// be just fine.
+    ///
+    /// Something along the line of `<block number>-<block id>`
+    /// should work fine since the block are supposed to be ordered by
+    /// block number anyway. So we should always go from parent to children
+    /// and the block id will be used as differentiator in case of
+    /// <block number> collisions (forks).
+    ///
+    fn mk_sled_key(&self, key: impl AsRef<[u8]>) -> Vec<u8>;
+}
+
+impl BlockNumber for u64 {
+    const MAX: Self = u64::MIN;
+    const MIN: Self = u64::MIN;
+
+    #[inline]
+    fn checked_next(self) -> Option<Self> {
+        self.checked_add(1)
+    }
+
+    #[inline]
+    fn saturating_next(self) -> Self {
+        self.saturating_add(1)
+    }
+
+    #[inline]
+    fn checked_add(self, rhs: u64) -> Option<Self> {
+        self.checked_add(rhs)
+    }
+
+    #[inline]
+    fn saturating_add(self, rhs: u64) -> Self {
+        self.saturating_add(rhs)
+    }
+
+    #[inline]
+    fn saturating_sub(self, rhs: u64) -> Self {
+        self.saturating_sub(rhs)
+    }
+
+    fn mk_sled_key(&self, key: impl AsRef<[u8]>) -> Vec<u8> {
+        let mut bytes = vec![];
+
+        // leverage [`sled`](https://crates.io/crates/sled) lexicographic
+        // ordering by using big endian
+        bytes.extend(self.to_be_bytes());
+
+        // add the separator to help with human readable and to detect
+        // malformation of key in the db (a bit like a magic number)
+        bytes.extend(b"-");
+
+        // just store whatever was given as the key
+        bytes.extend(key.as_ref());
+
+        bytes
+    }
+}
 
 /// Configure the selection rule for the [`Multiverse::select_best_block`]
 /// function
@@ -113,7 +209,7 @@ pub enum BestBlockSelectionRule {
 /// database so that if something happen during execution we can
 /// re-start the operation with more or less better state.
 ///
-pub struct Multiverse<K, V> {
+pub struct Multiverse<K, V, BlockOrderType: BlockNumber> {
     /// keep a hold of the [`sled::Db`] but it's really the
     /// tree we will be using.
     _db: sled::Db,
@@ -121,11 +217,11 @@ pub struct Multiverse<K, V> {
     tree: sled::Tree,
 
     all: HashMap<EntryRef<K>, Entry<K, V>>,
-    ordered: BTreeMap<BlockNumber, HashSet<EntryRef<K>>>,
+    ordered: BTreeMap<BlockOrderType, HashSet<EntryRef<K>>>,
     tips: HashSet<EntryRef<K>>,
     roots: HashSet<EntryRef<K>>,
 
-    store_from: BlockNumber,
+    store_from: BlockOrderType,
 }
 
 /// Structure returned by [`Multiverse::select_best_block`] function.
@@ -145,9 +241,10 @@ pub struct BestBlock<K> {
     pub discarded: HashSet<EntryRef<K>>,
 }
 
-impl<K, V> Multiverse<K, V>
+impl<K, V, BlockOrderType> Multiverse<K, V, BlockOrderType>
 where
     K: Eq + Hash,
+    BlockOrderType: BlockNumber,
 {
     /// list all the tips of the Multiverse
     pub fn tips(&self) -> HashSet<Arc<K>> {
@@ -155,10 +252,11 @@ where
     }
 }
 
-impl<K, V> Multiverse<K, V>
+impl<K, V, BlockOrderType> Multiverse<K, V, BlockOrderType>
 where
     K: AsRef<[u8]>,
     V: serde::de::DeserializeOwned + serde::Serialize,
+    BlockOrderType: BlockNumber,
 {
     /// create a Multiverse with the given sled database as
     /// core entry of the component
@@ -166,7 +264,7 @@ where
     /// The `domain` is used as an identifier within the Db.
     ///
     #[inline]
-    fn new_with(db: sled::Db, domain: &str, store_from: BlockNumber) -> Self {
+    fn new_with(db: sled::Db, domain: &str, store_from: BlockOrderType) -> Self {
         let all = HashMap::new();
         let ordered = BTreeMap::new();
         let tips = HashSet::new();
@@ -195,14 +293,11 @@ where
         // and deleted on drop
         let db = sled::Config::new().temporary(true).open()?;
 
-        Ok(Self::new_with(db, "temporary", BlockNumber::MIN))
+        Ok(Self::new_with(db, "temporary", BlockOrderType::MIN))
     }
 
-    fn db_remove<C>(&mut self, counter: C, key: &K) -> Result<bool, MultiverseError>
-    where
-        C: Into<u64>,
-    {
-        let key = mk_sled_key(counter.into(), key);
+    fn db_remove(&mut self, counter: BlockOrderType, key: &K) -> Result<bool, MultiverseError> {
+        let key = counter.mk_sled_key(key);
         let b = self.tree.remove(key)?;
 
         Ok(b.is_some())
@@ -211,13 +306,14 @@ where
     /// insert the given entry in the database
     ///
     /// returns true if the value is an original value
-    fn db_insert<C>(&mut self, counter: C, key: &K, value: &V) -> Result<bool, MultiverseError>
-    where
-        C: Into<u64>,
-    {
-        let counter = counter.into();
+    fn db_insert(
+        &mut self,
+        counter: BlockOrderType,
+        key: &K,
+        value: &V,
+    ) -> Result<bool, MultiverseError> {
         if self.store_from <= counter {
-            let key = mk_sled_key(counter, key);
+            let key = counter.mk_sled_key(key);
             let b = self.tree.insert(key, serde_json::to_vec(value)?)?;
 
             Ok(b.is_none())
@@ -227,7 +323,10 @@ where
     }
 }
 
-impl<K, V> Multiverse<K, V> {
+impl<K, V, BlockOrderType> Multiverse<K, V, BlockOrderType>
+where
+    BlockOrderType: BlockNumber,
+{
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.all.is_empty()
@@ -239,9 +338,10 @@ impl<K, V> Multiverse<K, V> {
     }
 }
 
-impl<K, V> Multiverse<K, V>
+impl<K, V, BlockOrderType> Multiverse<K, V, BlockOrderType>
 where
     K: AsRef<[u8]> + Eq + Hash,
+    BlockOrderType: BlockNumber,
 {
     /// check if a given key `K` is present in the [`Multiverse`]
     #[tracing::instrument(skip(self, key), level = "trace")]
@@ -251,17 +351,18 @@ where
     }
 }
 
-impl<K, V> Multiverse<K, V>
+impl<K, V, BlockOrderType> Multiverse<K, V, BlockOrderType>
 where
     K: AsRef<[u8]> + Eq + Hash + fmt::Debug + Clone,
-    V: Variant<Key = K>,
+    V: Variant<BlockOrderType, Key = K>,
+    BlockOrderType: BlockNumber,
 {
     /// create an iterator over the entries of the multiverse
-    /// ordered by the associated [`BlockNumber`].
+    /// ordered by the associated [`BlockOrderType`].
     ///
     /// We tie the iterator to the multiverse to prevent updating the
     /// storage while we are iterating over the entries.
-    pub fn iter(&self) -> DepthOrderedIterator<'_, K, V> {
+    pub fn iter(&self) -> DepthOrderedIterator<'_, K, V, BlockOrderType> {
         DepthOrderedIterator::new(self)
     }
 
@@ -276,7 +377,7 @@ where
     pub fn load_from(
         db: sled::Db,
         domain: &str,
-        store_from: BlockNumber,
+        store_from: BlockOrderType,
     ) -> Result<Self, MultiverseError> {
         let mut multiverse = Self::new_with(db, domain, store_from);
 
@@ -297,7 +398,11 @@ where
     ///
     /// The `domain` is used as an identifier within the Db.
     ///
-    pub fn open<P>(path: P, domain: &str, store_from: BlockNumber) -> Result<Self, MultiverseError>
+    pub fn open<P>(
+        path: P,
+        domain: &str,
+        store_from: BlockOrderType,
+    ) -> Result<Self, MultiverseError>
     where
         P: AsRef<Path>,
     {
@@ -422,7 +527,7 @@ where
 
         let counter = entry.value.block_number();
 
-        if let btree_map::Entry::Occupied(mut occupied) = self.ordered.entry(counter) {
+        if let btree_map::Entry::Occupied(mut occupied) = self.ordered.entry(counter.clone()) {
             occupied.get_mut().remove(key);
             if occupied.get().is_empty() {
                 occupied.remove();
@@ -468,7 +573,7 @@ where
     }
 
     fn select_best_block_longest_chain(&self, depth: usize, age_gap: usize) -> BestBlock<K> {
-        // take the blocks that have the highest `BlockNumber`
+        // take the blocks that have the highest `BlockOrderType`
         // these are the most likely tips at the given time
         let selected = if let Some((_, tips)) = self.ordered.iter().last() {
             if let Some(tip) = tips.iter().next() {
@@ -488,7 +593,7 @@ where
 
                 let max = selected.value.block_number().saturating_sub(age_gap as u64);
 
-                for (number, set) in self.ordered.range(BlockNumber::MIN..max) {
+                for (number, set) in self.ordered.range(BlockOrderType::MIN..max.clone()) {
                     debug_assert!(number <= &max);
                     discarded.extend(set.iter().cloned());
                 }
@@ -500,33 +605,6 @@ where
             discarded,
         }
     }
-}
-
-/// the sled::Db iterator allows to load in an ordered fashion. So
-/// long we decide to use a `key` format that makes sense we should
-/// be just fine.
-///
-/// Something along the line of `<block number>-<block id>`
-/// should work fine since the block are supposed to be ordered by
-/// block number anyway. So we should always go from parent to children
-/// and the block id will be used as differentiator in case of
-/// <block number> collisions (forks).
-///
-fn mk_sled_key(counter: u64, key: impl AsRef<[u8]>) -> Vec<u8> {
-    let mut bytes = vec![];
-
-    // leverage [`sled`](https://crates.io/crates/sled) lexicographic
-    // ordering by using big endian
-    bytes.extend(counter.to_be_bytes());
-
-    // add the separator to help with human readable and to detect
-    // malformation of key in the db (a bit like a magic number)
-    bytes.extend(b"-");
-
-    // just store whatever was given as the key
-    bytes.extend(key.as_ref());
-
-    bytes
 }
 
 impl<K> Default for BestBlock<K> {
@@ -547,7 +625,7 @@ mod tests {
 
     #[test]
     fn ancestor_0_is_self() {
-        let mut m: Multiverse<K, V> = Multiverse::temporary().unwrap();
+        let mut m: Multiverse<K, V, u64> = Multiverse::temporary().unwrap();
         let blockchain = declare_blockchain! {
             "Root" <= "1" <= "2",
                       "1" <= "3"
@@ -570,7 +648,7 @@ mod tests {
 
     #[test]
     fn ancestor_1_is_parent() {
-        let mut m: Multiverse<K, V> = Multiverse::temporary().unwrap();
+        let mut m: Multiverse<K, V, u64> = Multiverse::temporary().unwrap();
         let blockchain = declare_blockchain! {
             "Root" <= "1" <= "2",
                       "1" <= "3"
@@ -593,7 +671,7 @@ mod tests {
 
     #[test]
     fn ancestor_1_is_grand_parent() {
-        let mut m: Multiverse<K, V> = Multiverse::temporary().unwrap();
+        let mut m: Multiverse<K, V, u64> = Multiverse::temporary().unwrap();
         let blockchain = declare_blockchain! {
             "Root" <= "1" <= "2",
                       "1" <= "3"
@@ -626,12 +704,12 @@ mod tests {
         fn assumption(left: (u64, &[u8]), right: (u64, &[u8]), ordering: Ordering) -> bool {
             let left = {
                 let (counter, bytes) = left;
-                mk_sled_key(counter, bytes)
+                counter.mk_sled_key(bytes)
             };
 
             let right = {
                 let (counter, bytes) = right;
-                mk_sled_key(counter, bytes)
+                counter.mk_sled_key(bytes)
             };
 
             left.cmp(&right) == ordering
@@ -654,7 +732,7 @@ mod tests {
     /// `true` or `false`.
     #[test]
     fn multiverse_basic_db_operations() {
-        let mut m: Multiverse<Vec<u8>, Vec<u8>> = Multiverse::temporary().unwrap();
+        let mut m: Multiverse<Vec<u8>, Vec<u8>, u64> = Multiverse::temporary().unwrap();
 
         assert!(m.db_insert(0u64, &vec![0], &vec![0]).unwrap());
         assert!(!m.db_insert(0u64, &vec![0], &vec![0]).unwrap());
@@ -669,7 +747,7 @@ mod tests {
 
     #[test]
     fn multiverse_linked_list_of_1() {
-        let mut m: Multiverse<K, V> = Multiverse::temporary().unwrap();
+        let mut m: Multiverse<K, V, u64> = Multiverse::temporary().unwrap();
 
         let blockchain = declare_blockchain! { "Root" };
 
@@ -684,7 +762,7 @@ mod tests {
 
     #[test]
     fn multiverse_linked_list_of_2() {
-        let mut m: Multiverse<K, V> = Multiverse::temporary().unwrap();
+        let mut m: Multiverse<K, V, u64> = Multiverse::temporary().unwrap();
 
         let blockchain = declare_blockchain! { "Root" <= "Child" };
 
@@ -721,7 +799,7 @@ mod tests {
     }
 
     struct Simulation {
-        multiverse: Multiverse<K, V>,
+        multiverse: Multiverse<K, V, u64>,
         selection_rule: BestBlockSelectionRule,
         selected: Option<K>,
     }

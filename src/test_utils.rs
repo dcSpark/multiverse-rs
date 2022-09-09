@@ -1,5 +1,4 @@
 use super::Variant;
-use crate::BlockNumber;
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::{Borrow, Cow},
@@ -202,7 +201,7 @@ impl AsRef<[u8]> for K {
     }
 }
 
-impl Variant for V {
+impl Variant<u64> for V {
     type Key = K;
 
     fn id(&self) -> &K {
@@ -211,7 +210,7 @@ impl Variant for V {
     fn parent_id(&self) -> &K {
         &self.parent_id
     }
-    fn block_number(&self) -> BlockNumber {
+    fn block_number(&self) -> u64 {
         self.counter
     }
 }

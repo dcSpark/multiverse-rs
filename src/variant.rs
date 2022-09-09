@@ -3,7 +3,9 @@ use crate::BlockNumber;
 /// convenient trait to enable generalization of [`Multiverse`](crate::Multiverse)
 /// state tracking.
 ///
-pub trait Variant: serde::de::DeserializeOwned + serde::Serialize {
+pub trait Variant<BlockOrderType: BlockNumber>:
+    serde::de::DeserializeOwned + serde::Serialize
+{
     type Key: Clone;
 
     /// expect to be the unique identifier of the givens state
@@ -13,5 +15,5 @@ pub trait Variant: serde::de::DeserializeOwned + serde::Serialize {
     fn parent_id(&self) -> &Self::Key;
 
     /// expect to be the number of blocks present in the given chain
-    fn block_number(&self) -> BlockNumber;
+    fn block_number(&self) -> BlockOrderType;
 }

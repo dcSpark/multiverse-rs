@@ -1,8 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::env;
-use tracing::error;
 
-use multiverse::{BestBlockSelectionRule, BlockNumber, Multiverse, Variant};
+use multiverse::{BestBlockSelectionRule, Multiverse, Variant};
 
 const MULTIVERSE_STRUCTURE: &str = "\
 (0-aaa0)<-(1-abc0)<-(2-bcd0)<-(3-cde0)<-(4-def0)<-(5-efg0)
@@ -16,11 +15,11 @@ const MULTIVERSE_STRUCTURE: &str = "\
 struct MyNode {
     id: String,
     parent_id: String,
-    block_number: BlockNumber,
+    block_number: u64,
 }
 
 impl MyNode {
-    fn new(id: &str, block_number: BlockNumber, parent_id: &str) -> MyNode {
+    fn new(id: &str, block_number: u64, parent_id: &str) -> MyNode {
         MyNode {
             id: String::from(id),
             block_number,
@@ -30,7 +29,7 @@ impl MyNode {
 }
 
 /// We must implement ['Variant'] to work with multiverse.
-impl Variant for MyNode {
+impl Variant<u64> for MyNode {
     type Key = String;
     fn id(&self) -> &Self::Key {
         &self.id
@@ -38,12 +37,12 @@ impl Variant for MyNode {
     fn parent_id(&self) -> &Self::Key {
         &self.parent_id
     }
-    fn block_number(&self) -> BlockNumber {
+    fn block_number(&self) -> u64 {
         self.block_number
     }
 }
 
-type MyMultiverse = Multiverse<String, MyNode>;
+type MyMultiverse = Multiverse<String, MyNode, u64>;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -84,8 +83,8 @@ fn main() {
 ///
 fn populate_multiverse(mv: &mut MyMultiverse) {
     // This function created just to same some space and 4 fun 2.
-    let mut insert = |id: &str, block_number: BlockNumber, parent_id: &str| {
-        mv.insert(MyNode::new(id, block_number, parent_id));
+    let mut insert = |id: &str, block_number: u64, parent_id: &str| {
+        mv.insert(MyNode::new(id, block_number, parent_id)).unwrap();
     };
 
     insert("0-aaa0", 0, "");
