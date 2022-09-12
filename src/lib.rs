@@ -525,10 +525,10 @@ where
         }
     }
 
-    /// select a fork (a tip) of the multiverse based on the [`ForkSelectionRule`]
+    /// select a fork (a tip) of the multiverse based on the [`BestBlockSelectionRule`]
     /// algorithm.
     ///
-    /// see [`ForkSelectionRule`] for more information about the different options
+    /// see [`BestBlockSelectionRule`] for more information about the different options
     /// and the trade off.
     pub fn preferred_fork_tip(&self, rule: BestBlockSelectionRule) -> Option<EntryRef<K>> {
         match rule {
