@@ -225,6 +225,30 @@ where
             Ok(false)
         }
     }
+
+    pub fn clear(&mut self) -> Result<(), MultiverseError> {
+        tracing::warn!("Irreversibly NUKE a multiverse");
+        self.tree.clear()?;
+        self.all.clear();
+        self.ordered.clear();
+        self.tips.clear();
+        self.roots.clear();
+
+        Ok(())
+    }
+
+    pub fn destroy(self) -> Result<(), MultiverseError> {
+        tracing::warn!("Irreversibly LEVEL a multiverse");
+
+        let name = self.tree.name();
+        let dropped = self._db.drop_tree(name)?;
+
+        if dropped {
+            tracing::info!("Multiverse successfully destroyed");
+        }
+
+        Ok(())
+    }
 }
 
 impl<K, V> Multiverse<K, V> {
