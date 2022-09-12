@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use std::env;
-use tracing::error;
 
 use multiverse::{BestBlockSelectionRule, BlockNumber, Multiverse, Variant};
 
@@ -85,7 +84,7 @@ fn main() {
 fn populate_multiverse(mv: &mut MyMultiverse) {
     // This function created just to same some space and 4 fun 2.
     let mut insert = |id: &str, block_number: BlockNumber, parent_id: &str| {
-        mv.insert(MyNode::new(id, block_number, parent_id));
+        mv.insert(MyNode::new(id, block_number, parent_id)).unwrap();
     };
 
     insert("0-aaa0", 0, "");

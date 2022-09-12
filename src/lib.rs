@@ -500,6 +500,43 @@ where
             discarded,
         }
     }
+
+    /// select a fork (a tip) of the multiverse based on the [`ForkSelectionRule`]
+    /// algorithm.
+    ///
+    /// see [`ForkSelectionRule`] for more information about the different options
+    /// and the trade off.
+    pub fn preferred_fork_tip(&self, rule: BestBlockSelectionRule) -> Option<EntryRef<K>> {
+        match rule {
+            BestBlockSelectionRule::LongestChain { .. } => self.prefer_longest_chain_fork_tip(),
+        }
+    }
+
+    fn prefer_longest_chain_fork_tip(&self) -> Option<EntryRef<K>> {
+        let mut tips = self.tips.iter();
+        let mut result = tips.next().cloned()?;
+
+        let mut longest = self
+            .all
+            .get(&result)
+            .expect("entries in the `tips` should be in the `all`")
+            .value
+            .block_number();
+
+        for tip_ref in tips {
+            let tip = self
+                .all
+                .get(tip_ref)
+                .expect("entries in the `tips` should be in the `all`");
+
+            if tip.value.block_number() > longest {
+                longest = tip.value.block_number();
+                result = tip_ref.clone();
+            }
+        }
+
+        Some(result)
+    }
 }
 
 /// the sled::Db iterator allows to load in an ordered fashion. So
