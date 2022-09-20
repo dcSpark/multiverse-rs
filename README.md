@@ -1,4 +1,4 @@
-# [DEPRECATED] Multiverse
+# \[DEPRECATED\] Multiverse
 
 [![Linter and unit tests](https://github.com/dcSpark/multiverse-rs/actions/workflows/rust.yml/badge.svg)](https://github.com/dcSpark/multiverse-rs/actions/workflows/rust.yml)
 [![Test documentation](https://github.com/dcSpark/multiverse-rs/actions/workflows/rustdoc.yml/badge.svg)](https://github.com/dcSpark/multiverse-rs/actions/workflows/rustdoc.yml)
