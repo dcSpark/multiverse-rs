@@ -1,7 +1,9 @@
-# Multiverse
+# [DEPRECATED] Multiverse
 
 [![Linter and unit tests](https://github.com/dcSpark/multiverse-rs/actions/workflows/rust.yml/badge.svg)](https://github.com/dcSpark/multiverse-rs/actions/workflows/rust.yml)
 [![Test documentation](https://github.com/dcSpark/multiverse-rs/actions/workflows/rustdoc.yml/badge.svg)](https://github.com/dcSpark/multiverse-rs/actions/workflows/rustdoc.yml)
+
+Maintained version is now in [dcspark-core](https://github.com/dcSpark/dcspark-core)
 
 ## TL;DR
 Imagine that you require to have next sequence of blocks/nodes/vertexes/etc. 
